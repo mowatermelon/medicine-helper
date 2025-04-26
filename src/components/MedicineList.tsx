@@ -57,6 +57,7 @@ export default function MedicineList() {
   const [daysOffset, setDaysOffset] = useState<number>(0);
   const [sortField, setSortField] = useState<'remainingDays' | 'replenishDate'>('remainingDays');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [replenishQuantities, setReplenishQuantities] = useState<Record<string, number>>({});
 
   // 排序函数
   const sortMedicines = (medicines: Medicine[]) => {
@@ -290,18 +291,18 @@ export default function MedicineList() {
                     <input
                       type="number"
                       min="0"
-                      value={replenishBoxes}
-                      // onChange={(e) => {
-                      //   const value = Math.max(0, parseInt(e.target.value) || 0);
-                      //   setReplenishQuantities(prev => ({
-                      //     ...prev,
-                      //     [med.id]: value
-                      //   }));
-                      // }}
+                      value={replenishQuantities[med.id] || replenishBoxes}
+                      onChange={(e) => {
+                        const value = Math.max(0, parseInt(e.target.value) || 0);
+                        setReplenishQuantities(prev => ({
+                          ...prev,
+                          [med.id]: value
+                        }));
+                      }}
                       className="w-16 border rounded px-1 ml-1"
                     />盒
                   </div>
-<div className="text-gray-600">补后总量：{(calculateRemainingDays(med, targetDate) * (med.doses.morning + med.doses.noon + med.doses.night) + replenishBoxes * med.specification)}片</div>
+<div className="text-gray-600">补后总量：{(calculateRemainingDays(med, targetDate) * (med.doses.morning + med.doses.noon + med.doses.night) + (replenishQuantities[med.id] || 0) * med.specification)}片</div>
                   <div className="col-span-2 text-gray-600 border-t pt-2">
                     {med.stock > 0 ? (
                       <>当前有效期：{formatDate(new Date(Date.now() + Math.floor((med.stock * med.specification) / dailyUsage) * 86400000))}</>
@@ -310,7 +311,7 @@ export default function MedicineList() {
                     )}
                   </div>
                   <div className="col-span-2 text-gray-600">
-                    新有效期：{formatDate(calculateReplenishment(med, replenishBoxes, targetDate).newExpiry)}
+                    新有效期：{formatDate(calculateReplenishment(med, replenishQuantities[med.id] || 0, targetDate).newExpiry)}
                   </div>
                 </div>
               </div>
