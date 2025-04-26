@@ -6,16 +6,71 @@ import { useMedicineStore } from '@/store/medicineStore';
 import MedicineForm from './MedicineForm';
 import { Medicine } from '@/types/medicine';
 
+const formatDate = (date: Date) => {
+  return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, '0')}月${date.getDate().toString().padStart(2, '0')}日`;
+};
+
+// 新增余药天数计算函数
+const calculateRemainingDays = (medicine: Medicine, targetDate: Date) => {
+  const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
+  if (dailyUsage === 0) return Infinity;
+
+  const createdDate = new Date(medicine.id);
+  const daysPassed = Math.floor((targetDate.getTime() - createdDate.getTime()) / 86400000);
+  const consumed = dailyUsage * Math.max(daysPassed, 0);
+  const remaining = medicine.stock * medicine.specification - consumed;
+
+  return remaining > 0 ? Math.floor(remaining / dailyUsage) : 0;
+};
+
+const calculateReplenishment = (med: Medicine, replenishBoxes: number, targetDate: Date) => {
+  const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
+  if (dailyUsage === 0) return { maintainDays: 0, newExpiry: targetDate };
+
+  const remainingDays = calculateRemainingDays(med, targetDate);
+  const remainingQuantity = remainingDays * dailyUsage;
+  const newQuantity = remainingQuantity + (replenishBoxes * med.specification);
+  const maintainDays = Math.floor(newQuantity / dailyUsage);
+
+  return {
+    maintainDays,
+    newExpiry: new Date(targetDate.getTime() + maintainDays * 86400000)
+  };
+};
+
+const calculateSuggestedReplenishment = (med: Medicine, targetDate: Date, daysOffset: number) => {
+  const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
+  if (dailyUsage === 0) return 0;
+  
+  const remainingAtTarget = calculateRemainingDays(med, targetDate) * dailyUsage;
+  const requiredForOffset = daysOffset * dailyUsage;
+  const needed = Math.max(0, requiredForOffset - remainingAtTarget);
+  
+  return Math.ceil(needed / med.specification);
+};
+
 export default function MedicineList() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const { medicines, deleteMedicine } = useMedicineStore();
+  const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const [daysOffset, setDaysOffset] = useState<number>(0);
+
+  // 更新后的计算函数
+  const filterByReplenishDate = (medicines: Medicine[], baseDate: Date, offsetDays: number) => {
+    const targetDate = new Date(baseDate.getTime() + offsetDays * 86400000);
+    return medicines.filter(med => {
+      const daysLeft = calculateRemainingDays(med, targetDate);
+      const replenishDate = new Date(targetDate.getTime() + daysLeft * 86400000);
+      return replenishDate <= targetDate;
+    });
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div className="text-center space-y-4 mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">智能药品管理助手</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="text-center space-y-4 mb-8 animate-fade-in">
+        <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">智能药品管理助手</h1>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto px-4">
           轻松管理您的日常用药，智能追踪库存和用药提醒，让健康管理更简单、更可靠。
         </p>
       </div>
@@ -37,7 +92,7 @@ export default function MedicineList() {
               <Dialog.Title className="text-lg font-bold mb-4">
                 {editingMedicine ? '编辑药品信息' : '新增药品信息'}
               </Dialog.Title>
-              <MedicineForm 
+              <MedicineForm
                 initialData={editingMedicine}
                 onSuccess={() => {
                   setIsOpen(false);
@@ -49,43 +104,43 @@ export default function MedicineList() {
         </Dialog>
       </div>
 
-      <div className="rounded-lg border">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-sm font-medium">创建日期</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">药品名称</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">库存量</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">剩余药量</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">用药频率</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">每日单片用量</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">剩余可用天数</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">预计补药日期</th>
-              <th className="px-6 py-3 text-left text-sm font-medium">操作</th>
+              <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">创建日期</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">药品名称</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">库存量</th>
+              <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余药量</th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">用药频率</th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">每日单片用量</th>
+              <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余可用天数</th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">预计补药日期</th>
+              <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">操作</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-gray-200">
             {medicines.map((medicine) => (
-              <tr key={medicine.id}>
-                <td className="px-6 py-4 text-sm">{new Date(medicine.id).toLocaleDateString()}</td>
-                <td className="px-6 py-4 text-sm">{medicine.name}</td>
-                <td className="px-6 py-4 text-sm">{medicine.stock.toFixed(1)}盒</td>
-                <td className="px-6 py-4 text-sm">{(medicine.stock * medicine.specification).toFixed(1)}片</td>
-                <td className="px-6 py-4 text-sm">
+              <tr key={`medicine-${medicine.id}-${medicine.name}`}>
+                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{new Date(medicine.id).toLocaleDateString()}</td>
+                <td className="px-6 py-4 text-sm font-medium text-gray-900">{medicine.name}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{medicine.stock.toFixed(1)}盒</td>
+                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{(medicine.stock * medicine.specification).toFixed(1)}片</td>
+                <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {`${medicine.doses.morning}/${medicine.doses.noon}/${medicine.doses.night}`}
                 </td>
-                <td className="px-6 py-4 text-sm">
+                <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {(medicine.doses.morning + medicine.doses.noon + medicine.doses.night)}片
                 </td>
-                <td className="px-6 py-4 text-sm">
+                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">
                   {Math.floor((medicine.stock * medicine.specification) / (medicine.doses.morning + medicine.doses.noon + medicine.doses.night))}天
                 </td>
-                <td className="px-6 py-4 text-sm">
+                <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {new Date(Date.now() + Math.floor((medicine.stock * medicine.specification) / (medicine.doses.morning + medicine.doses.noon + medicine.doses.night)) * 24 * 60 * 60 * 1000).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-sm space-x-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => {
                       setEditingMedicine(medicine);
@@ -94,8 +149,8 @@ export default function MedicineList() {
                   >
                     编辑
                   </Button>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     size="sm"
                     onClick={() => deleteMedicine(medicine.id)}
                   >
@@ -109,13 +164,13 @@ export default function MedicineList() {
       </div>
 
       {/* 用药统计面板 */}
-      <div className="rounded-lg border p-4 bg-gray-50">
-        <h3 className="text-sm font-medium mb-4">每日用药统计</h3>
-        <div className="flex gap-4">
+      <div className="rounded-xl border border-gray-200 p-4 bg-white shadow-sm backdrop-blur-sm bg-opacity-90">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900">每日用药统计</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {['早晨', '中午', '晚上'].map((time, index) => {
-            const timeKey = ['morning', 'noon', 'night'][index];
+            const timeKey = ['morning', 'noon', 'night'][index] as 'morning' | 'noon' | 'night';
             return (
-              <div key={time} className="flex-1 bg-white rounded-lg p-3">
+              <div key={time} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 shadow-sm transition-transform hover:scale-[1.02]">
                 <div className="text-sm text-gray-500">{time}</div>
                 <div className="space-y-2 mb-2">
                   {medicines.map(med => {
@@ -144,13 +199,81 @@ export default function MedicineList() {
           <div className="flex justify-between">
             <span className="text-sm">每日总用量：</span>
             <span className="font-medium">
-              {medicines.reduce((sum, med) => sum + 
+              {medicines.reduce((sum, med) => sum +
                 (med.doses.morning + med.doses.noon + med.doses.night)
-              , 0)}片
+                , 0)}片
             </span>
           </div>
         </div>
       </div>
+      {/* 新增补药预测面板 */}
+      <div className="rounded-xl border border-gray-200 p-4 bg-white shadow-sm backdrop-blur-sm bg-opacity-90 mt-8">
+        <div className="flex justify-between items-center mb-4 gap-2">
+          <h3 className="text-lg font-semibold text-gray-900">补药日期预测</h3>
+          <div className="flex gap-2">
+            <div className="col-span-2 text-gray-600">
+              新有效期：{formatDate(new Date(targetDate.getTime() + daysOffset * 86400000))}
+            </div>
+            <input
+              type="date"
+              value={targetDate.toISOString().split('T')[0]}
+              onChange={(e) => setTargetDate(new Date(e.target.value))}
+              className="border rounded-md px-2 py-1 w-36"
+            />
+            <input
+              type="number"
+              min="0"
+              value={daysOffset}
+              onChange={(e) => setDaysOffset(Math.max(0, parseInt(e.target.value) || 0))}
+              className="border rounded-md px-2 py-1 w-24"
+              placeholder="间隔天数"
+            />
+          </div>
+        </div>
+        <div className="space-y-3">
+          {filterByReplenishDate(medicines, targetDate, daysOffset).map(med => {
+            const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
+            const replenishBoxes = calculateSuggestedReplenishment(med, targetDate, daysOffset);
+            return (
+              <div key={med.id} className="flex flex-col p-3 bg-rose-50 rounded-lg space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{med.name}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="text-gray-600">当前余药天数：{calculateRemainingDays(med, targetDate)}天</div>
+                  <div className="text-blue-600">建议补货：
+                    <input
+                      type="number"
+                      min="0"
+                      value={replenishBoxes}
+                      // onChange={(e) => {
+                      //   const value = Math.max(0, parseInt(e.target.value) || 0);
+                      //   setReplenishQuantities(prev => ({
+                      //     ...prev,
+                      //     [med.id]: value
+                      //   }));
+                      // }}
+                      className="w-16 border rounded px-1 ml-1"
+                    />盒
+                  </div>
+<div className="text-gray-600">补后总量：{(calculateRemainingDays(med, targetDate) * (med.doses.morning + med.doses.noon + med.doses.night) + replenishBoxes * med.specification)}片</div>
+                  <div className="col-span-2 text-gray-600 border-t pt-2">
+                    {med.stock > 0 ? (
+                      <>当前有效期：{formatDate(new Date(Date.now() + Math.floor((med.stock * med.specification) / dailyUsage) * 86400000))}</>
+                    ) : (
+                      <span className="text-red-500">当前无剩余药量</span>
+                    )}
+                  </div>
+                  <div className="col-span-2 text-gray-600">
+                    新有效期：{formatDate(calculateReplenishment(med, replenishBoxes, targetDate).newExpiry)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
     </div>
   );
 }

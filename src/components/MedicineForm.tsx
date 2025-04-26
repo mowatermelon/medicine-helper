@@ -3,12 +3,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { useMedicineStore } from '@/store/medicineStore';
+import { Medicine } from '@/types/medicine';
 
 const schema = z.object({
   name: z.string().min(1, '药品名称不能为空'),
   specification: z.number().min(1, '单盒规格必须大于0'),
   stock: z.number().min(0.1, '库存量必须大于0.1盒'),
-  selectedTimes: z.array(z.string()),
+
   doses: z.object({
     morning: z.number().min(0, '早晨剂量不能小于0'),
     noon: z.number().min(0, '中午剂量不能小于0'),
@@ -31,7 +32,6 @@ export default function MedicineForm({ onSuccess, initialData }: MedicineFormPro
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: initialData || {
-      selectedTimes: [],
       doses: {
         morning: 0,
         noon: 0,
@@ -41,12 +41,12 @@ export default function MedicineForm({ onSuccess, initialData }: MedicineFormPro
   });
 
 
-  const onSubmit = (data: any) => {
-    const totalDosage = data.doses.morning + data.doses.noon + data.doses.night;
+  const onSubmit = (data: z.infer<typeof schema>) => {
+    const formData = data;
     if (initialData) {
-      updateMedicine(initialData.id, { ...data, dosage: totalDosage, id: initialData.id });
+      updateMedicine(initialData.id, { ...formData, id: initialData.id });
     } else {
-      addMedicine({ ...data, dosage: totalDosage, id: Date.now() });
+      addMedicine({ ...formData, id: Date.now() });
     }
     onSuccess?.();
   };
@@ -85,26 +85,7 @@ export default function MedicineForm({ onSuccess, initialData }: MedicineFormPro
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">用药时段</label>
-        <div className="flex gap-4">
-          {['morning', 'noon', 'night'].map((time) => (
-            <label key={time} className="flex items-center">
-              <input
-                type="checkbox"
-                {...register('selectedTimes')}
-                value={time}
-                className="mr-2"
-              />
-              {{
-                morning: '早晨',
-                noon: '中午',
-                night: '晚上'
-              }[time]}
-            </label>
-          ))}
-        </div>
-      </div>
+
 
       <div>
         <label className="block text-sm font-medium mb-1">用药配置</label>
