@@ -15,8 +15,8 @@ const calculateRemainingDays = (medicine: Medicine, targetDate: Date) => {
   const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
   if (dailyUsage === 0) return Infinity;
 
-  const createdDate = new Date(medicine.id);
-  const daysPassed = Math.floor((targetDate.getTime() - createdDate.getTime()) / 86400000);
+  const baseDate = new Date(medicine.updatedAt || medicine.id);
+  const daysPassed = Math.floor((targetDate.getTime() - baseDate.getTime()) / 86400000);
   const consumed = dailyUsage * Math.max(daysPassed, 0);
   const remaining = medicine.stock * medicine.specification - consumed;
 
@@ -68,8 +68,8 @@ export default function MedicineList() {
         const bDays = calculateRemainingDays(b, targetDate);
         comparison = aDays - bDays;
       } else {
-        const aDate = new Date(Date.now() + calculateRemainingDays(a, targetDate) * 86400000);
-        const bDate = new Date(Date.now() + calculateRemainingDays(b, targetDate) * 86400000);
+        const aDate = new Date((a.updatedAt || a.id) + calculateRemainingDays(a, targetDate) * 86400000);
+        const bDate = new Date((b.updatedAt || b.id) + calculateRemainingDays(b, targetDate) * 86400000);
         comparison = aDate.getTime() - bDate.getTime();
       }
       
@@ -130,6 +130,7 @@ export default function MedicineList() {
           <thead className="bg-gray-50">
             <tr>
               <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">创建日期</th>
+              <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">更新时间</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">药品名称</th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">库存量</th>
               <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余药量</th>
@@ -166,6 +167,7 @@ export default function MedicineList() {
             {sortMedicines(medicines).map((medicine) => (
               <tr key={`medicine-${medicine.id}-${medicine.name}`}>
                 <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{new Date(medicine.id).toLocaleDateString()}</td>
+                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{new Date(medicine.updatedAt || medicine.id).toLocaleDateString()}</td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{medicine.name}</td>
                 <td className="px-6 py-4 text-sm text-gray-600">{medicine.stock.toFixed(1)}盒</td>
                 <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{(medicine.stock * medicine.specification).toFixed(1)}片</td>

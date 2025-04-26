@@ -24,4 +24,5 @@ export interface Medicine {
     night: number;
   };
   administration: '口服' | '针剂' | '塞剂';
+  updatedAt: number;
 }

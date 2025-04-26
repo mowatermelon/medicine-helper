@@ -44,9 +44,9 @@ export default function MedicineForm({ onSuccess, initialData }: MedicineFormPro
   const onSubmit = (data: z.infer<typeof schema>) => {
     const formData = data;
     if (initialData) {
-      updateMedicine(initialData.id, { ...formData, id: initialData.id });
+      updateMedicine(initialData.id, { ...formData, id: initialData.id, updatedAt: Date.now() });
     } else {
-      addMedicine({ ...formData, id: Date.now() });
+      addMedicine({ ...formData, id: Date.now(), updatedAt: Date.now() });
     }
     onSuccess?.();
   };
