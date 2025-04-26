@@ -88,7 +88,7 @@ export default function MedicineList() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="text-center space-y-4 mb-8 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">智能药品管理助手</h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto px-4">
@@ -125,7 +125,7 @@ export default function MedicineList() {
         </Dialog>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="w-full overflow-x-auto rounded-none border border-gray-200 bg-white shadow-none">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
