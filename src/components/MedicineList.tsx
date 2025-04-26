@@ -55,6 +55,27 @@ export default function MedicineList() {
   const { medicines, deleteMedicine } = useMedicineStore();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [daysOffset, setDaysOffset] = useState<number>(0);
+  const [sortField, setSortField] = useState<'remainingDays' | 'replenishDate'>('remainingDays');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // 排序函数
+  const sortMedicines = (medicines: Medicine[]) => {
+    return [...medicines].sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortField === 'remainingDays') {
+        const aDays = calculateRemainingDays(a, targetDate);
+        const bDays = calculateRemainingDays(b, targetDate);
+        comparison = aDays - bDays;
+      } else {
+        const aDate = new Date(Date.now() + calculateRemainingDays(a, targetDate) * 86400000);
+        const bDate = new Date(Date.now() + calculateRemainingDays(b, targetDate) * 86400000);
+        comparison = aDate.getTime() - bDate.getTime();
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  };
 
   // 更新后的计算函数
   const filterByReplenishDate = (medicines: Medicine[], baseDate: Date, offsetDays: number) => {
@@ -114,13 +135,35 @@ export default function MedicineList() {
               <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余药量</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">用药频率</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">每日单片用量</th>
-              <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余可用天数</th>
-              <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">预计补药日期</th>
+              <th 
+                className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500 cursor-pointer"
+                onClick={() => {
+                  setSortField('remainingDays');
+                  setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                }}
+              >
+                剩余可用天数
+                {sortField === 'remainingDays' && (
+                  <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </th>
+              <th 
+                className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500 cursor-pointer"
+                onClick={() => {
+                  setSortField('replenishDate');
+                  setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                }}
+              >
+                预计补药日期
+                {sortField === 'replenishDate' && (
+                  <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                )}
+              </th>
               <th className="px-6 py-3 text-left text-sm font-medium text-gray-500">操作</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {medicines.map((medicine) => (
+            {sortMedicines(medicines).map((medicine) => (
               <tr key={`medicine-${medicine.id}-${medicine.name}`}>
                 <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">{new Date(medicine.id).toLocaleDateString()}</td>
                 <td className="px-6 py-4 text-sm font-medium text-gray-900">{medicine.name}</td>
