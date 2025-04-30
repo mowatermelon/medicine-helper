@@ -11,76 +11,140 @@ const formatDate = (date: Date) => {
 };
 
 // 新增余药天数计算函数
+/**
+ * 计算药品剩余可用天数
+ * @param medicine 药品对象
+ * @param targetDate 目标日期
+ * @returns 剩余天数(如果每日用量为0则返回Infinity)
+ */
 const calculateRemainingDays = (medicine: Medicine, targetDate: Date) => {
+  // 计算每日总用量(早+中+晚)
   const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
+  // 如果每日用量为0，返回无限大(表示不会用完)
   if (dailyUsage === 0) return Infinity;
 
+  // 获取基准日期(优先使用更新时间，没有则使用创建时间)
   const baseDate = new Date(medicine.updatedAt || medicine.id);
+  // 计算从基准日期到目标日期的天数差
   const daysPassed = Math.floor((targetDate.getTime() - baseDate.getTime()) / 86400000);
+  // 计算已消耗的药量(确保天数差不为负)
   const consumed = dailyUsage * Math.max(daysPassed, 0);
+  // 计算剩余药量(总药量 - 已消耗)
   const remaining = medicine.stock * medicine.specification - consumed;
 
+  // 返回剩余天数(如果剩余药量为正则计算天数，否则返回0)
   return remaining > 0 ? Math.floor(remaining / dailyUsage) : 0;
 };
 
+/**
+ * 计算补药后的维持天数和新的有效期
+ * @param med 药品对象
+ * @param replenishBoxes 补药盒数
+ * @param targetDate 目标日期
+ * @returns 包含维持天数和新有效期的对象
+ */
 const calculateReplenishment = (med: Medicine, replenishBoxes: number, targetDate: Date) => {
+  // 计算每日总用量
   const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
+  // 如果每日用量为0，直接返回目标日期(无需补药)
   if (dailyUsage === 0) return { maintainDays: 0, newExpiry: targetDate };
 
+  // 计算当前剩余天数
   const remainingDays = calculateRemainingDays(med, targetDate);
+  // 计算当前剩余药量(天数*每日用量)
   const remainingQuantity = remainingDays * dailyUsage;
+  // 计算补药后的总药量(剩余药量 + 补药盒数*每盒规格)
   const newQuantity = remainingQuantity + (replenishBoxes * med.specification);
+  // 计算补药后能维持的天数
   const maintainDays = Math.floor(newQuantity / dailyUsage);
 
+  // 返回维持天数和新的有效期(目标日期+维持天数)
   return {
     maintainDays,
     newExpiry: new Date(targetDate.getTime() + maintainDays * 86400000)
   };
 };
 
+/**
+ * 计算建议补药盒数
+ * @param med 药品对象
+ * @param targetDate 目标日期
+ * @param daysOffset 需要维持的天数
+ * @returns 建议补药的盒数(向上取整)
+ */
 const calculateSuggestedReplenishment = (med: Medicine, targetDate: Date, daysOffset: number) => {
+  // 计算每日总用量(早+中+晚)
   const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
+  // 如果每日用量为0，返回0(无需补药)
   if (dailyUsage === 0) return 0;
   
+  // 计算目标日期时的剩余药量(剩余天数*每日用量)
   const remainingAtTarget = calculateRemainingDays(med, targetDate) * dailyUsage;
+  // 计算维持daysOffset天所需的药量
   const requiredForOffset = daysOffset * dailyUsage;
+  // 计算需要补充的药量(确保不小于0)
   const needed = Math.max(0, requiredForOffset - remainingAtTarget);
   
+  // 返回需要补药的盒数(药量/每盒规格，向上取整)
   return Math.ceil(needed / med.specification);
 };
 
 export default function MedicineList() {
+  // 控制新增/编辑药品对话框的显示状态
   const [isOpen, setIsOpen] = useState(false);
+  // 当前正在编辑的药品对象
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  // 从store中获取药品列表和删除方法
   const { medicines, deleteMedicine } = useMedicineStore();
+  // 目标日期状态，用于计算补药预测
   const [targetDate, setTargetDate] = useState<Date>(new Date());
+  // 需要维持的天数偏移量
   const [daysOffset, setDaysOffset] = useState<number>(0);
+  // 排序字段(剩余天数或补药日期)
   const [sortField, setSortField] = useState<'remainingDays' | 'replenishDate'>('remainingDays');
+  // 排序方向(升序或降序)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // 记录每种药品的补药数量
   const [replenishQuantities, setReplenishQuantities] = useState<Record<string, number>>({});
 
-  // 排序函数
+  /**
+   * 药品排序函数
+   * @param medicines 药品列表
+   * @returns 排序后的药品列表
+   */
   const sortMedicines = (medicines: Medicine[]) => {
     return [...medicines].sort((a, b) => {
       let comparison = 0;
       
+      // 根据选择的排序字段进行比较
       if (sortField === 'remainingDays') {
+        // 按剩余天数排序
         const aDays = calculateRemainingDays(a, targetDate);
         const bDays = calculateRemainingDays(b, targetDate);
         comparison = aDays - bDays;
       } else {
+        // 按补药日期排序
         const aDate = new Date((a.updatedAt || a.id) + calculateRemainingDays(a, targetDate) * 86400000);
         const bDate = new Date((b.updatedAt || b.id) + calculateRemainingDays(b, targetDate) * 86400000);
         comparison = aDate.getTime() - bDate.getTime();
       }
       
+      // 根据排序方向返回比较结果
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   };
 
-  // 更新后的计算函数
+  /**
+   * 过滤需要补药的药品
+   * @param medicines 药品列表
+   * @param baseDate 基准日期
+   * @param offsetDays 偏移天数
+   * @returns 需要补药的药品列表
+   */
   const filterByReplenishDate = (medicines: Medicine[], baseDate: Date, offsetDays: number) => {
+    // 计算目标日期(基准日期+偏移天数)
     const targetDate = new Date(baseDate.getTime() + offsetDays * 86400000);
+    // 过滤出在目标日期前需要补药的药品
     return medicines.filter(med => {
       const daysLeft = calculateRemainingDays(med, targetDate);
       const replenishDate = new Date(targetDate.getTime() + daysLeft * 86400000);
