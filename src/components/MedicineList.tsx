@@ -168,13 +168,19 @@ export default function MedicineList() {
     <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="text-center space-y-4 mb-8 animate-fade-in">
         <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 tracking-tight">智能药品管理助手</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto px-4">
+        <p className="text-lg text-gray-600 max-w-3xl mx-auto px-4">
           轻松管理您的日常用药，智能追踪库存和用药提醒，让健康管理更简单、更可靠。
         </p>
+        <div className="text-sm text-gray-500 max-w-2xl mx-auto px-4 space-y-1">
+          <p>• 自动计算药品剩余天数和补药日期</p>
+          <p>• 支持按剩余天数或补药日期排序</p>
+          <p>• 提供每日用药统计和补药建议</p>
+          <p>• 可自定义补药预测日期和维持天数</p>
+        </div>
       </div>
       <div className="flex justify-end">
         <Button
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
           onClick={() => setIsOpen(true)}
         >
           新增药品
@@ -275,6 +281,7 @@ export default function MedicineList() {
                     编辑
                   </Button>
                   <Button
+                    className='text-white'
                     variant="destructive"
                     size="sm"
                     onClick={() => deleteMedicine(medicine.id)}
