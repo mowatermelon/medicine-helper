@@ -11,9 +11,9 @@ const schema = z.object({
   stock: z.number().min(0.1, '库存量必须大于0.1盒'),
 
   doses: z.object({
-    morning: z.number().min(0, '早晨剂量不能小于0'),
-    noon: z.number().min(0, '中午剂量不能小于0'),
-    night: z.number().min(0, '晚上剂量不能小于0')
+    morning: z.number().min(0, '早晨剂量不能小于0').multipleOf(0.1, '剂量必须为0.1的倍数'),
+    noon: z.number().min(0, '中午剂量不能小于0').multipleOf(0.1, '剂量必须为0.1的倍数'),
+    night: z.number().min(0, '晚上剂量不能小于0').multipleOf(0.1, '剂量必须为0.1的倍数')
   }),
   administration: z.enum(['口服', '针剂', '塞剂'])
 });
