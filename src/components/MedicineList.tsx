@@ -6,6 +6,39 @@ import { useMedicineStore } from '@/store/medicineStore';
 import MedicineForm from './MedicineForm';
 import { Medicine } from '@/types/medicine';
 
+/**
+ * 计算药品有效期信息（考虑从添加/更新日期开始的每日用药）
+ * @param medicine 药品对象
+ * @returns 包含剩余天数和有效期的对象
+ *   - remainingDays: 剩余可用天数（基于已过去天数和每日用量计算）
+ *   - expiryDate: 预计用完日期（基准日期 + 已过去天数 + 剩余天数）
+ */
+const calculateMedicineExpiry = (medicine: Medicine) => {
+  // 计算每日总用量（早+中+晚）
+  const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
+  
+  // 获取基准日期（优先使用更新时间，没有则使用创建时间）
+  const baseDate = new Date(medicine.updatedAt || medicine.id);
+  
+  // 计算从基准日期到当前已过去的天数
+  const daysPassed = Math.floor((Date.now() - baseDate.getTime()) / 86400000);
+  
+  // 计算剩余药量（总药量 - 已消耗药量）并转换为剩余天数
+  const remainingDays = Math.floor(
+    (medicine.stock * medicine.specification - dailyUsage * daysPassed) / dailyUsage
+  );
+  
+  // 计算有效期日期（基准日期 + 已过去天数 + 剩余天数）
+  const expiryDate = new Date(
+    baseDate.getTime() + (daysPassed + remainingDays) * 24 * 60 * 60 * 1000
+  );
+  
+  return { 
+    remainingDays: Math.max(0, remainingDays), // 确保剩余天数不小于0
+    expiryDate 
+  };
+};
+
 const formatDate = (date: Date) => {
   return `${date.getFullYear()}年${(date.getMonth() + 1).toString().padStart(2, '0')}月${date.getDate().toString().padStart(2, '0')}日`;
 };
@@ -98,15 +131,13 @@ export default function MedicineList() {
       // 根据选择的排序字段进行比较
       if (sortField === 'remainingDays') {
         // 按剩余天数排序
-        const { days: aDays } = calculateRemainingDays(a, targetDate);
-        const { days: bDays } = calculateRemainingDays(b, targetDate);
+        const { remainingDays: aDays } = calculateMedicineExpiry(a);
+        const { remainingDays: bDays } = calculateMedicineExpiry(b);
         comparison = aDays - bDays;
       } else {
         // 按补药日期排序
-        const { days: aDays } = calculateRemainingDays(a, targetDate);
-        const aDate = new Date((a.updatedAt || a.id) + aDays * 86400000);
-        const { days: bDays } = calculateRemainingDays(b, targetDate);
-        const bDate = new Date((b.updatedAt || b.id) + bDays * 86400000);
+        const { expiryDate: aDate } = calculateMedicineExpiry(a);
+        const { expiryDate: bDate } = calculateMedicineExpiry(b);
         comparison = aDate.getTime() - bDate.getTime();
       }
 
@@ -224,10 +255,10 @@ export default function MedicineList() {
                   {(medicine.doses.morning + medicine.doses.noon + medicine.doses.night)}片
                 </td>
                 <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">
-                  {Math.floor((medicine.stock * medicine.specification) / (medicine.doses.morning + medicine.doses.noon + medicine.doses.night))}天
+                  {calculateMedicineExpiry(medicine).remainingDays}天
                 </td>
                 <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
-                  {new Date(Date.now() + Math.floor((medicine.stock * medicine.specification) / (medicine.doses.morning + medicine.doses.noon + medicine.doses.night)) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  {calculateMedicineExpiry(medicine).expiryDate.toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 text-sm space-x-2">
                   <Button
