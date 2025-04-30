@@ -219,6 +219,7 @@ export default function MedicineList() {
               <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余药量</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">用药频率</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">每日单片用量</th>
+              <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">用药方式</th>
               <th
                 className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500 cursor-pointer"
                 onClick={() => {
@@ -259,6 +260,15 @@ export default function MedicineList() {
                 </td>
                 <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {(medicine.doses.morning + medicine.doses.noon + medicine.doses.night)}片
+                </td>
+                <td className="hidden lg:table-cell px-6 py-4 text-sm">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    medicine.administration === '口服' ? 'bg-green-100 text-green-800' :
+                    medicine.administration === '针剂' ? 'bg-blue-100 text-blue-800' :
+                    'bg-purple-100 text-purple-800'
+                  }`}>
+                    {medicine.administration}
+                  </span>
                 </td>
                 <td className={`hidden md:table-cell px-6 py-4 text-sm ${calculateMedicineExpiry(medicine).remainingDays <= 3 ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
                   {calculateMedicineExpiry(medicine).remainingDays}天
