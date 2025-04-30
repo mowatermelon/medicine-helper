@@ -12,16 +12,16 @@ const formatDate = (date: Date) => {
 
 // 新增余药天数计算函数
 /**
- * 计算药品剩余可用天数
+ * 计算药品剩余可用天数和剩余药量
  * @param medicine 药品对象
  * @param targetDate 目标日期
- * @returns 剩余天数(如果每日用量为0则返回Infinity)
+ * @returns 包含剩余天数和剩余药量的对象(如果每日用量为0则返回Infinity)
  */
 const calculateRemainingDays = (medicine: Medicine, targetDate: Date) => {
   // 计算每日总用量(早+中+晚)
   const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
   // 如果每日用量为0，返回无限大(表示不会用完)
-  if (dailyUsage === 0) return Infinity;
+  if (dailyUsage === 0) return { days: Infinity, quantity: Infinity };
 
   // 获取基准日期(优先使用更新时间，没有则使用创建时间)
   const baseDate = new Date(medicine.updatedAt || medicine.id);
@@ -32,61 +32,40 @@ const calculateRemainingDays = (medicine: Medicine, targetDate: Date) => {
   // 计算剩余药量(总药量 - 已消耗)
   const remaining = medicine.stock * medicine.specification - consumed;
 
-  // 返回剩余天数(如果剩余药量为正则计算天数，否则返回0)
-  return remaining > 0 ? Math.floor(remaining / dailyUsage) : 0;
-};
-
-/**
- * 计算补药后的维持天数和新的有效期
- * @param med 药品对象
- * @param replenishBoxes 补药盒数
- * @param targetDate 目标日期
- * @returns 包含维持天数和新有效期的对象
- */
-const calculateReplenishment = (med: Medicine, replenishBoxes: number, targetDate: Date) => {
-  // 计算每日总用量
-  const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
-  // 如果每日用量为0，直接返回目标日期(无需补药)
-  if (dailyUsage === 0) return { maintainDays: 0, newExpiry: targetDate };
-
-  // 计算当前剩余天数
-  const remainingDays = calculateRemainingDays(med, targetDate);
-  // 计算当前剩余药量(天数*每日用量)
-  const remainingQuantity = remainingDays * dailyUsage;
-  // 计算补药后的总药量(剩余药量 + 补药盒数*每盒规格)
-  const newQuantity = remainingQuantity + (replenishBoxes * med.specification);
-  // 计算补药后能维持的天数
-  const maintainDays = Math.floor(newQuantity / dailyUsage);
-
-  // 返回维持天数和新的有效期(目标日期+维持天数)
+  // 返回剩余天数和剩余药量(如果剩余药量为正则计算天数，否则返回0)
   return {
-    maintainDays,
-    newExpiry: new Date(targetDate.getTime() + maintainDays * 86400000)
+    days: remaining > 0 ? Math.floor(remaining / dailyUsage) : 0,
+    quantity: remaining > 0 ? Math.floor(remaining) : 0
   };
 };
 
 /**
- * 计算建议补药盒数
+ * 计算建议补药信息
  * @param med 药品对象
  * @param targetDate 目标日期
  * @param daysOffset 需要维持的天数
- * @returns 建议补药的盒数(向上取整)
+ * @returns 包含补药盒数、补药后总量和新有效期的对象
  */
 const calculateSuggestedReplenishment = (med: Medicine, targetDate: Date, daysOffset: number) => {
   // 计算每日总用量(早+中+晚)
   const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
   // 如果每日用量为0，返回0(无需补药)
-  if (dailyUsage === 0) return 0;
-  
+  if (dailyUsage === 0) return { boxes: 0, total: 0, newExpiry: targetDate };
+
   // 计算目标日期时的剩余药量(剩余天数*每日用量)
-  const remainingAtTarget = calculateRemainingDays(med, targetDate) * dailyUsage;
+  const { quantity: remainingAtTarget } = calculateRemainingDays(med, targetDate);
   // 计算维持daysOffset天所需的药量
   const requiredForOffset = daysOffset * dailyUsage;
   // 计算需要补充的药量(确保不小于0)
   const needed = Math.max(0, requiredForOffset - remainingAtTarget);
-  
-  // 返回需要补药的盒数(药量/每盒规格，向上取整)
-  return Math.ceil(needed / med.specification);
+  // 计算补药盒数(药量/每盒规格，向上取整)
+  const boxes = Math.ceil(needed / med.specification);
+  // 计算补药后总量
+  const total = remainingAtTarget + (boxes * med.specification);
+  // 计算新有效期
+  const newExpiry = new Date(targetDate.getTime() + Math.floor(total / dailyUsage) * 86400000);
+
+  return { boxes, total, newExpiry };
 };
 
 export default function MedicineList() {
@@ -115,20 +94,22 @@ export default function MedicineList() {
   const sortMedicines = (medicines: Medicine[]) => {
     return [...medicines].sort((a, b) => {
       let comparison = 0;
-      
+
       // 根据选择的排序字段进行比较
       if (sortField === 'remainingDays') {
         // 按剩余天数排序
-        const aDays = calculateRemainingDays(a, targetDate);
-        const bDays = calculateRemainingDays(b, targetDate);
+        const { days: aDays } = calculateRemainingDays(a, targetDate);
+        const { days: bDays } = calculateRemainingDays(b, targetDate);
         comparison = aDays - bDays;
       } else {
         // 按补药日期排序
-        const aDate = new Date((a.updatedAt || a.id) + calculateRemainingDays(a, targetDate) * 86400000);
-        const bDate = new Date((b.updatedAt || b.id) + calculateRemainingDays(b, targetDate) * 86400000);
+        const { days: aDays } = calculateRemainingDays(a, targetDate);
+        const aDate = new Date((a.updatedAt || a.id) + aDays * 86400000);
+        const { days: bDays } = calculateRemainingDays(b, targetDate);
+        const bDate = new Date((b.updatedAt || b.id) + bDays * 86400000);
         comparison = aDate.getTime() - bDate.getTime();
       }
-      
+
       // 根据排序方向返回比较结果
       return sortDirection === 'asc' ? comparison : -comparison;
     });
@@ -146,7 +127,7 @@ export default function MedicineList() {
     const targetDate = new Date(baseDate.getTime() + offsetDays * 86400000);
     // 过滤出在目标日期前需要补药的药品
     return medicines.filter(med => {
-      const daysLeft = calculateRemainingDays(med, targetDate);
+      const { days: daysLeft } = calculateRemainingDays(med, targetDate);
       const replenishDate = new Date(targetDate.getTime() + daysLeft * 86400000);
       return replenishDate <= targetDate;
     });
@@ -201,7 +182,7 @@ export default function MedicineList() {
               <th className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">剩余药量</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">用药频率</th>
               <th className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500">每日单片用量</th>
-              <th 
+              <th
                 className="hidden md:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500 cursor-pointer"
                 onClick={() => {
                   setSortField('remainingDays');
@@ -213,7 +194,7 @@ export default function MedicineList() {
                   <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>
                 )}
               </th>
-              <th 
+              <th
                 className="hidden lg:table-cell px-6 py-3 text-left text-sm font-medium text-gray-500 cursor-pointer"
                 onClick={() => {
                   setSortField('replenishDate');
@@ -343,14 +324,17 @@ export default function MedicineList() {
         <div className="space-y-3">
           {filterByReplenishDate(medicines, targetDate, daysOffset).map(med => {
             const dailyUsage = med.doses.morning + med.doses.noon + med.doses.night;
-            const replenishBoxes = calculateSuggestedReplenishment(med, targetDate, daysOffset);
+            const { boxes: replenishBoxes, total, newExpiry } = calculateSuggestedReplenishment(med, targetDate, daysOffset);
+            const remainingData = calculateRemainingDays(med, targetDate);
             return (
               <div key={med.id} className="flex flex-col p-3 bg-rose-50 rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="font-medium">{med.name}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="text-gray-600">当前余药天数：{calculateRemainingDays(med, targetDate)}天</div>
+                  <div className="text-gray-600">每盒规格：{med.specification}片</div>
+                  <div className="text-gray-600">当前余药天数：{remainingData.days}天</div>
+                  <div className="text-gray-600">当前余药片数：{remainingData.quantity}片</div>
                   <div className="text-blue-600">建议补货：
                     <input
                       type="number"
@@ -366,7 +350,7 @@ export default function MedicineList() {
                       className="w-16 border rounded px-1 ml-1"
                     />盒
                   </div>
-<div className="text-gray-600">补后总量：{(calculateRemainingDays(med, targetDate) * (med.doses.morning + med.doses.noon + med.doses.night) + (replenishQuantities[med.id] || 0) * med.specification)}片</div>
+                  <div className="text-gray-600">补后总量：{total}片</div>
                   <div className="col-span-2 text-gray-600 border-t pt-2">
                     {med.stock > 0 ? (
                       <>当前有效期：{formatDate(new Date(Date.now() + Math.floor((med.stock * med.specification) / dailyUsage) * 86400000))}</>
@@ -375,7 +359,7 @@ export default function MedicineList() {
                     )}
                   </div>
                   <div className="col-span-2 text-gray-600">
-                    新有效期：{formatDate(calculateReplenishment(med, replenishQuantities[med.id] || 0, targetDate).newExpiry)}
+                    新有效期：{formatDate(newExpiry)}
                   </div>
                 </div>
               </div>
