@@ -301,8 +301,8 @@ export default function MedicineList() {
       <div className="rounded-xl border border-gray-200 p-4 bg-white shadow-sm backdrop-blur-sm bg-opacity-90 mt-8">
         <div className="flex justify-between items-center mb-4 gap-2">
           <h3 className="text-lg font-semibold text-gray-900">补药日期预测</h3>
-          <div className="flex gap-2">
-            <div className="col-span-2 text-gray-600">
+          <div className="flex gap-2 items-center">
+            <div className="text-gray-600">
               新有效期：{formatDate(new Date(targetDate.getTime() + daysOffset * 86400000))}
             </div>
             <input
