@@ -254,8 +254,11 @@ export default function MedicineList() {
                 <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {(medicine.doses.morning + medicine.doses.noon + medicine.doses.night)}片
                 </td>
-                <td className="hidden md:table-cell px-6 py-4 text-sm text-gray-600">
+                <td className={`hidden md:table-cell px-6 py-4 text-sm ${calculateMedicineExpiry(medicine).remainingDays <= 3 ? 'text-red-600 font-bold' : 'text-gray-600'}`}>
                   {calculateMedicineExpiry(medicine).remainingDays}天
+                  {calculateMedicineExpiry(medicine).remainingDays <= 3 && (
+                    <span className="ml-1 text-xs text-red-500">(需补药)</span>
+                  )}
                 </td>
                 <td className="hidden lg:table-cell px-6 py-4 text-sm text-gray-600">
                   {calculateMedicineExpiry(medicine).expiryDate.toLocaleDateString()}
