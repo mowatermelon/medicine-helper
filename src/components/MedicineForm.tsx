@@ -101,6 +101,7 @@ export default function MedicineForm({ onSuccess, initialData }: MedicineFormPro
                   {...register(fieldName, { valueAsNumber: true })}
                   className="w-full px-2 py-1 border rounded"
                   min="0"
+                  step="0.1"
                 />
               </div>
             );
