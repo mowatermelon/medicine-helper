@@ -16,26 +16,26 @@ import { Medicine } from '@/types/medicine';
 const calculateMedicineExpiry = (medicine: Medicine) => {
   // 计算每日总用量（早+中+晚）
   const dailyUsage = medicine.doses.morning + medicine.doses.noon + medicine.doses.night;
-  
+
   // 获取基准日期（优先使用更新时间，没有则使用创建时间）
   const baseDate = new Date(medicine.updatedAt || medicine.id);
-  
+
   // 计算从基准日期到当前已过去的天数
   const daysPassed = Math.floor((Date.now() - baseDate.getTime()) / 86400000);
-  
+
   // 计算剩余药量（总药量 - 已消耗药量）并转换为剩余天数
   const remainingDays = Math.floor(
     (medicine.stock * medicine.specification - dailyUsage * daysPassed) / dailyUsage
   );
-  
+
   // 计算有效期日期（基准日期 + 已过去天数 + 剩余天数）
   const expiryDate = new Date(
     baseDate.getTime() + (daysPassed + remainingDays) * 24 * 60 * 60 * 1000
   );
-  
-  return { 
+
+  return {
     remainingDays: Math.max(0, remainingDays), // 确保剩余天数不小于0
-    expiryDate 
+    expiryDate
   };
 };
 
@@ -262,11 +262,10 @@ export default function MedicineList() {
                   {(medicine.doses.morning + medicine.doses.noon + medicine.doses.night)}片
                 </td>
                 <td className="hidden lg:table-cell px-6 py-4 text-sm">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    medicine.administration === '口服' ? 'bg-green-100 text-green-800' :
-                    medicine.administration === '针剂' ? 'bg-blue-100 text-blue-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${medicine.administration === '口服' ? 'bg-green-100 text-green-800' :
+                      medicine.administration === '针剂' ? 'bg-blue-100 text-blue-800' :
+                        'bg-purple-100 text-purple-800'
+                    }`}>
                     {medicine.administration}
                   </span>
                 </td>
@@ -401,16 +400,15 @@ export default function MedicineList() {
                       className="w-16 border rounded px-1 ml-1"
                     />盒
                   </div>
-                  <div className="text-gray-600">补后总量：{total}片</div>
-                  <div className="col-span-2 text-gray-600 border-t pt-2">
+                  <div className="text-sky-400 font-bold">需要总量：{dailyUsage * daysOffset}片</div>
+                  <div className="text-sky-500 font-bold">补后总量：{total}片(冗余 {total - (dailyUsage * daysOffset)} 片)</div>
+                  <div className="col-span-2 text-gray-600 border-t pt-2 flex justify-normal">
                     {med.stock > 0 ? (
-                      <>当前有效期：{formatDate(new Date(Date.now() + Math.floor((med.stock * med.specification) / dailyUsage) * 86400000))}</>
+                      <span>当前有效期：{formatDate(new Date(Date.now() + Math.floor((med.stock * med.specification) / dailyUsage) * 86400000))}</span>
                     ) : (
                       <span className="text-red-500">当前无剩余药量</span>
                     )}
-                  </div>
-                  <div className="col-span-2 text-gray-600">
-                    新有效期：{formatDate(newExpiry)}
+                    <span className="font-bold text-center ml-2.5">新有效期：{formatDate(newExpiry)}</span>
                   </div>
                 </div>
               </div>
